@@ -132,7 +132,7 @@ class CustomDPOTrainer(DPOTrainer):
             reference_rejected_logps,
         )
         if self.lamb > 1e-6:
-            losses += torch.max(0, -(chosen_rewards / self.beta)) * self.lamb
+            losses += torch.clamp(-(chosen_rewards / self.beta), min=0) * self.lamb
         if self.ftx_gamma > 1e-6:
             batch_size = batch["input_ids"].size(0) // 2
             chosen_labels, _ = batch["labels"].split(batch_size, dim=0)
