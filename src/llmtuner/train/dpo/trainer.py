@@ -17,10 +17,11 @@ if TYPE_CHECKING:
 class CustomDPOTrainer(DPOTrainer):
     def __init__(
         self,
-        beta: float,
         loss_type: Literal["sigmoid", "hinge", "ipo", "kto_pair"],
         ftx_gamma: float,
         model: Union["PreTrainedModel", torch.nn.Module],
+        beta: float = 0.3,
+        lamb: float = 50.0,
         ref_model: Optional[Union["PreTrainedModel", torch.nn.Module]] = None,
         disable_dropout: Optional[bool] = True,
         **kwargs,
@@ -46,6 +47,7 @@ class CustomDPOTrainer(DPOTrainer):
         self.label_smoothing = 0
         self.loss_type = loss_type
         self.ftx_gamma = ftx_gamma
+        self.lamb = lamb
         self._stored_metrics = defaultdict(lambda: defaultdict(list))
 
         Trainer.__init__(self, model=model, **kwargs)
@@ -129,6 +131,8 @@ class CustomDPOTrainer(DPOTrainer):
             reference_chosen_logps,
             reference_rejected_logps,
         )
+        if self.lamb > 1e-6:
+            losses += torch.max(0, -(chosen_rewards / self.beta)) * self.lamb
         if self.ftx_gamma > 1e-6:
             batch_size = batch["input_ids"].size(0) // 2
             chosen_labels, _ = batch["labels"].split(batch_size, dim=0)
